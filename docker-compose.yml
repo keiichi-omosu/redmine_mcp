@@ -9,7 +9,12 @@ services:
       - .:/app
     ports:
       - "3000:3000"
+    environment:
+      REDMINE_URL: http://redmine:3000
+      REDMINE_API_KEY: "6ab6ecd597df2c7871bdbf157fd4ed0b3ac33d7b"  # 実際のAPIキーに置き換えてください
     command: bash -c "bundle install && ruby server.rb"
+    depends_on:
+      - redmine
 
   redmine:
     image: redmine:latest
@@ -17,10 +22,13 @@ services:
     environment:
       REDMINE_DB_MYSQL: db
       REDMINE_DB_PASSWORD: password
+      # データベース文字コード設定の追加
+      REDMINE_DB_ENCODING: utf8
     ports:
       - "8080:3000"
     depends_on:
       - db
+    restart: unless-stopped
 
   db:
     image: mysql:5.7
@@ -28,8 +36,13 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: redmine
+      # 文字コードの設定
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
     volumes:
       - redmine_db_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    restart: unless-stopped
 
 volumes:
   redmine_db_data:
