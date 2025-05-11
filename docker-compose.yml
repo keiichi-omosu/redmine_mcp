@@ -9,14 +9,13 @@ services:
       - .:/app
     ports:
       - "3000:3000"
-    command: tail -f /dev/null
+    command: bash -c "bundle install && ruby server.rb"
 
   redmine:
     image: redmine:latest
     container_name: redmine
     environment:
       REDMINE_DB_MYSQL: db
-      REDMINE_DB_USERNAME: root
       REDMINE_DB_PASSWORD: password
     ports:
       - "8080:3000"
@@ -29,8 +28,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: password
       MYSQL_DATABASE: redmine
-    ports:
-      - "3306:3306"
     volumes:
       - redmine_db_data:/var/lib/mysql
 
