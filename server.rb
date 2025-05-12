@@ -43,7 +43,32 @@ post '/rpc' do
       id = request_payload['id']
       
       # Redmineチケット参照ツールの実装
-      if method == 'tools/redmine_ticket'
+      if method == 'mcp.tool.list'
+        # 利用可能なツールのリストを返す
+        response = {
+          jsonrpc: '2.0',
+          id: id,
+          result: {
+            tools: [
+              {
+                name: 'tools/redmine_ticket',
+                description: 'Redmineのチケット情報を取得するツール',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    ticket_id: {
+                      type: 'string',
+                      description: '取得するRedmineチケットのID'
+                    }
+                  },
+                  required: ['ticket_id']
+                }
+              }
+            ]
+          }
+        }
+        return response.to_json
+      elsif method == 'tools/redmine_ticket'
         if params['ticket_id']
           ticket_data = fetch_ticket(params['ticket_id'])
           
