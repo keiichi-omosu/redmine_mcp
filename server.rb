@@ -46,8 +46,23 @@ def create_jsonrpc_response(id, result)
 end
 
 # JSONRPCエラーレスポンスを生成するヘルパーメソッド
-def create_jsonrpc_error_response(id, message, status = 'error')
-  create_jsonrpc_response(id, { status: status, message: message })
+def create_jsonrpc_error_response(id, message, code = -32603)
+  {
+    jsonrpc: '2.0',
+    id: id,
+    error: {
+      code: code,
+      message: message
+    }
+  }
+end
+
+# MCP initializeメソッドのハンドラ
+def handle_initialize(id)
+  create_jsonrpc_response(id, {
+    server: 'Redmine MCP Server',
+    version: '1.0.0'
+  })
 end
 
 # mcp.tool.listメソッドのハンドラ
@@ -76,7 +91,7 @@ end
 def handle_redmine_ticket(id, params)
   # チケットIDの確認
   unless params['ticket_id']
-    return create_jsonrpc_error_response(id, 'チケットIDが指定されていません')
+    return create_jsonrpc_error_response(id, 'チケットIDが指定されていません', -32602) # Invalid params
   end
 
   # チケット情報取得
@@ -84,7 +99,7 @@ def handle_redmine_ticket(id, params)
   
   # エラー処理
   if ticket_data[:error]
-    return create_jsonrpc_error_response(id, ticket_data[:error])
+    return create_jsonrpc_error_response(id, ticket_data[:error], -32000) # Server error
   end
 
   # 成功レスポンス
@@ -97,7 +112,7 @@ end
 # サポートされていないメソッドのエラーハンドラ
 def handle_unsupported_method(id, method_name)
   logger.warn "サポートされていないメソッド呼び出し: #{method_name}"
-  create_jsonrpc_error_response(id, 'サポートされていないメソッドです')
+  create_jsonrpc_error_response(id, 'サポートされていないメソッドです', -32601) # Method not found
 end
 
 # SSEレスポンスを送信するヘルパーメソッド
@@ -118,7 +133,7 @@ post '/rpc' do
       set_sse_headers
       
       stream(:keep_open) do |out|
-        error_response = { status: 'error', message: '不正なJSONRPCリクエストです' }
+        error_response = create_jsonrpc_error_response(nil, '不正なJSONRPCリクエストです', -32600) # Invalid Request
         send_sse_response(out, error_response)
       end
       return
@@ -139,6 +154,8 @@ post '/rpc' do
     stream(:keep_open) do |out|
       # メソッドに応じたハンドラの呼び出し
       response = case method
+                 when 'initialize'
+                   handle_initialize(id)
                  when 'mcp.tool.list'
                    handle_tool_list(id)
                  when 'tools/redmine_ticket'
@@ -158,7 +175,7 @@ post '/rpc' do
     set_sse_headers
     
     stream(:keep_open) do |out|
-      error_response = { status: 'error', message: "エラーが発生しました: #{e.message}" }
+      error_response = create_jsonrpc_error_response(nil, "エラーが発生しました: #{e.message}", -32603) # Internal error
       send_sse_response(out, error_response)
     end
   end
