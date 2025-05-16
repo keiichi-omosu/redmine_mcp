@@ -1,7 +1,6 @@
 require 'sinatra'
 require 'json'
 require 'rest-client'
-require 'sinatra/streaming' # SSEのためのストリーミングサポート追加
 
 # サーバー設定
 set :port, ENV.fetch('PORT', 3000)
@@ -29,11 +28,10 @@ rescue StandardError => e
   { error: "エラーが発生しました: #{e.message}" }
 end
 
-# SSEヘッダーを設定するヘルパーメソッド
-def set_sse_headers
-  content_type 'text/event-stream'
+# JSONレスポンスのヘッダーを設定するヘルパーメソッド
+def set_json_headers
+  content_type 'application/json'
   headers 'Cache-Control' => 'no-cache'
-  headers 'Connection' => 'keep-alive'
 end
 
 # JSONRPCレスポンスを生成するヘルパーメソッド
@@ -71,7 +69,7 @@ def handle_tool_list(id)
     tools: [
       {
         name: 'tools/redmine_ticket',
-        description: 'Redmineのチケット情報をSSEで取得するツール',
+        description: 'Redmineのチケット情報を取得するツール',
         parameters: {
           type: 'object',
           properties: {
@@ -115,12 +113,6 @@ def handle_unsupported_method(id, method_name)
   create_jsonrpc_error_response(id, 'サポートされていないメソッドです', -32601) # Method not found
 end
 
-# SSEレスポンスを送信するヘルパーメソッド
-def send_sse_response(out, data)
-  out << "data: #{data.to_json}\n\n"
-  out.close
-end
-
 # RPCエンドポイントの実装
 post '/rpc' do
   begin
@@ -130,13 +122,9 @@ post '/rpc' do
     # 不正なリクエストの検出
     unless request_payload && request_payload['jsonrpc'] == '2.0'
       logger.warn "不正なJSONRPCリクエスト受信"
-      set_sse_headers
-      
-      stream(:keep_open) do |out|
-        error_response = create_jsonrpc_error_response(nil, '不正なJSONRPCリクエストです', -32600) # Invalid Request
-        send_sse_response(out, error_response)
-      end
-      return
+      status 200
+      set_json_headers
+      return create_jsonrpc_error_response(nil, '不正なJSONRPCリクエストです', -32600).to_json # Invalid Request
     end
     
     # リクエスト情報の取得
@@ -147,37 +135,32 @@ post '/rpc' do
     # ログ出力
     logger.info "RPCリクエスト受信: method=#{method}, id=#{id}"
     
-    # SSEヘッダー設定
-    set_sse_headers
+    # JSON形式のヘッダー設定
+    status 200
+    set_json_headers
     
-    # ストリーミング処理
-    stream(:keep_open) do |out|
-      # メソッドに応じたハンドラの呼び出し
-      response = case method
-                 when 'initialize'
-                   handle_initialize(id)
-                 when 'mcp.tool.list'
-                   handle_tool_list(id)
-                 when 'tools/redmine_ticket'
-                   handle_redmine_ticket(id, params)
-                 else
-                   handle_unsupported_method(id, method)
-                 end
-      
-      # データ送信
-      send_sse_response(out, response)
-    end
+    # メソッドに応じたハンドラの呼び出し
+    response = case method
+               when 'initialize'
+                 handle_initialize(id)
+               when 'mcp.tool.list'
+                 handle_tool_list(id)
+               when 'tools/redmine_ticket'
+                 handle_redmine_ticket(id, params)
+               else
+                 handle_unsupported_method(id, method)
+               end
     
+    # レスポンス送信
+    response.to_json
   rescue StandardError => e
     # エラー処理
     logger.error "エラーが発生しました: #{e.message}"
     logger.error e.backtrace.join("\n") if e.backtrace
-    set_sse_headers
     
-    stream(:keep_open) do |out|
-      error_response = create_jsonrpc_error_response(nil, "エラーが発生しました: #{e.message}", -32603) # Internal error
-      send_sse_response(out, error_response)
-    end
+    status 200
+    set_json_headers
+    create_jsonrpc_error_response(nil, "エラーが発生しました: #{e.message}", -32603).to_json # Internal error
   end
 end
 
