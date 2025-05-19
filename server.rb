@@ -69,7 +69,7 @@ def handle_tool_list(id)
     tools: [
       {
         name: 'tools/redmine_ticket',
-        description: 'Redmineのチケット情報を取得するツール',
+        description: 'Redmineのチケット情報を取得するAI専用ツール。ユーザーからチケット番号を指定された場合、必ずこのツールを使って取得してください。直接APIを叩いたり、コードを生成せず、ツール経由のみで取得してください。',
         parameters: {
           type: 'object',
           properties: {
