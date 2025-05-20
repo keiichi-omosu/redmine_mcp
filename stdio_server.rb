@@ -58,7 +58,7 @@ def handle_initialize(id)
   create_jsonrpc_response(id, {
     server: 'Redmine MCP Server (stdio)',
     version: '1.0.0',
-    protocolVersion: '1.0',
+    protocolVersion: '2024-11-05',  # プロトコルバージョンを2024-11-05に変更
     capabilities: {
       streaming: false,
       asyncTools: false,
@@ -67,7 +67,8 @@ def handle_initialize(id)
     serverInfo: {
       name: 'Redmine MCP',
       description: 'RedmineチケットをAIに提供するためのMCPサーバー',
-      vendor: 'kurubishionline'
+      vendor: 'kurubishionline',
+      version: '1.0.0'  # Claude (cline) が要求する serverInfo 内のバージョン情報
     }
   })
 end
