@@ -57,7 +57,18 @@ end
 def handle_initialize(id)
   create_jsonrpc_response(id, {
     server: 'Redmine MCP Server (stdio)',
-    version: '1.0.0'
+    version: '1.0.0',
+    protocolVersion: '1.0',
+    capabilities: {
+      streaming: false,
+      asyncTools: false,
+      authentication: false
+    },
+    serverInfo: {
+      name: 'Redmine MCP',
+      description: 'RedmineチケットをAIに提供するためのMCPサーバー',
+      vendor: 'kurubishionline'
+    }
   })
 end
 

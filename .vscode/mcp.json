@@ -1,9 +1,13 @@
 {
     "servers": {
-"RedmineMcpStdio": {
+        "RedmineMcpStdio": {
             "type": "stdio",
             "command": "ruby",
-            "args": ["${workspaceFolder}/stdio_server.rb"]
+            "args": ["${workspaceFolder}/stdio_server.rb"],
+            "env": {
+                "REDMINE_URL": "http://localhost:8080",
+                "REDMINE_API_KEY": "6ab6ecd597df2c7871bdbf157fd4ed0b3ac33d7b"
+            }
         }
     }
 }
