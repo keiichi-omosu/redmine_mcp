@@ -3,6 +3,11 @@
         "RedmineMCP": {
             "type": "http",
             "url": "http://localhost:3000/rpc"
+        },
+        "RedmineMcpStdio": {
+            "type": "stdio",
+            "command": "ruby",
+            "args": ["${workspaceFolder}/stdio_server.rb"]
         }
     }
 }
