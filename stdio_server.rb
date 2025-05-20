@@ -5,12 +5,16 @@ require 'rest-client'
 require 'logger'
 
 # ロガーの設定
-logger = Logger.new(STDERR)
-logger.level = Logger::INFO
+$logger = Logger.new(STDERR)
+$logger.level = Logger::INFO
 
 # Redmine APIクライアントの設定
-REDMINE_URL = ENV.fetch('REDMINE_URL', 'http://redmine:3000')
+# ローカル環境ではlocalhost:8080、Docker環境ではredmineホスト名を使用
+REDMINE_URL = ENV.fetch('REDMINE_URL', 'http://localhost:8080')
 REDMINE_API_KEY = ENV.fetch('REDMINE_API_KEY', '')
+
+# 起動時の接続設定ログ
+$logger.info "Redmine接続先設定: #{REDMINE_URL}"
 
 # Redmineからチケット情報を取得する関数
 def fetch_ticket(ticket_id)
@@ -103,12 +107,12 @@ end
 
 # サポートされていないメソッドのエラーハンドラ
 def handle_unsupported_method(id, method_name)
-  logger.warn "サポートされていないメソッド呼び出し: #{method_name}"
+  $logger.warn "サポートされていないメソッド呼び出し: #{method_name}"
   create_jsonrpc_error_response(id, 'サポートされていないメソッドです', -32601) # Method not found
 end
 
 # 標準入力から読み込みを行うメインループ
-logger.info "Redmine MCP STDIOサーバーが起動しました"
+$logger.info "Redmine MCP STDIOサーバーが起動しました"
 
 while line = STDIN.gets
   begin
@@ -120,7 +124,7 @@ while line = STDIN.gets
     
     # 不正なリクエストの検出
     unless request_payload && request_payload['jsonrpc'] == '2.0'
-      logger.warn "不正なJSONRPCリクエスト受信"
+      $logger.warn "不正なJSONRPCリクエスト受信"
       STDOUT.puts create_jsonrpc_error_response(nil, '不正なJSONRPCリクエストです', -32600).to_json
       STDOUT.flush
       next
@@ -131,8 +135,14 @@ while line = STDIN.gets
     params = request_payload['params'] || {}
     id = request_payload['id']
     
+    # 通知メソッド（notifications/initialized）の場合は応答しない
+    if method == 'notifications/initialized'
+      $logger.info "通知メソッド受信（応答なし）: #{method}"
+      next
+    end
+    
     # ログ出力
-    logger.info "RPCリクエスト受信: method=#{method}, id=#{id}"
+    $logger.info "RPCリクエスト受信: method=#{method}, id=#{id}"
     
     # メソッドに応じたハンドラの呼び出し
     response = case method
@@ -151,8 +161,8 @@ while line = STDIN.gets
     STDOUT.flush
   rescue StandardError => e
     # エラー処理
-    logger.error "エラーが発生しました: #{e.message}"
-    logger.error e.backtrace.join("\n") if e.backtrace
+    $logger.error "エラーが発生しました: #{e.message}"
+    $logger.error e.backtrace.join("\n") if e.backtrace
     
     STDOUT.puts create_jsonrpc_error_response(nil, "エラーが発生しました: #{e.message}", -32603).to_json
     STDOUT.flush
