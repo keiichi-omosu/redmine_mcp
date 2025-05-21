@@ -5,14 +5,7 @@ require 'rest-client'
 # サーバー設定
 set :port, ENV.fetch('PORT', 3000)
 set :bind, ENV.fetch('BIND', '0.0.0.0')
-set :server, # メソッドに応じたハンドラの呼び出し
-    response = case method
-               when 'initialize'
-                 handle_initialize(id)
-               when 'tools/list'
-                 handle_tool_list(id)
-               when 'tools/redmine_ticket'
-                 handle_redmine_ticket(id) Pumaを明示的に指定
+set :server, :puma  # Pumaを明示的に指定
 enable :logging     # ログを有効化
 
 # Redmine APIクライアントの設定
