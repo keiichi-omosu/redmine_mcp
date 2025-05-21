@@ -6,7 +6,7 @@ require 'logger'
 
 # ロガーの設定
 $logger = Logger.new(STDERR)
-$logger.level = Logger::INF# メソッドに応じたハンドラの呼び出し
+$logger.level = Logger::INFO
 
 # ローカル環境ではlocalhost:8080、Docker環境ではredmineホスト名を使用
 REDMINE_URL = ENV.fetch('REDMINE_URL', 'http://localhost:8080')
