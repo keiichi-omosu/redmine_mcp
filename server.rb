@@ -7,6 +7,7 @@ $LOAD_PATH.unshift(File.expand_path(File.join(File.dirname(__FILE__), 'lib')))
 require 'redmine_mcp_handler'
 require 'jsonrpc_helper'
 require 'mcp_logger'
+require 'jsonrpc_error_codes'
 
 # サーバー設定
 set :port, ENV.fetch('PORT', 3000)
@@ -37,7 +38,7 @@ post '/rpc' do
       McpLogger.warn "不正なJSONRPCリクエスト受信"
       status 200
       set_json_headers
-      return JsonrpcHelper.create_error_response(nil, '不正なJSONRPCリクエストです', -32600).to_json # Invalid Request
+      return JsonrpcHelper.create_error_response(nil, '不正なJSONRPCリクエストです', JsonrpcErrorCodes::INVALID_REQUEST).to_json
     end
     
     # リクエスト情報の取得
@@ -64,7 +65,7 @@ post '/rpc' do
     
     status 200
     set_json_headers
-    JsonrpcHelper.create_error_response(nil, "エラーが発生しました: #{e.message}", -32603).to_json # Internal error
+    JsonrpcHelper.create_error_response(nil, "エラーが発生しました: #{e.message}", JsonrpcErrorCodes::INTERNAL_ERROR).to_json
   end
 end
 
