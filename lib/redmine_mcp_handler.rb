@@ -54,13 +54,46 @@ class RedmineMcpHandler
     })
   end
 
-  # tools/redmine_ticketメソッドのハンドラ
-  # Redmineチケット情報を取得して返す
+  # サポートされていないメソッドのエラーハンドラ
+  # @param [String, Integer] id JSONRPCリクエストのID
+  # @param [String] method_name サポートされていないメソッド名
+  # @return [Hash] JSONRPCエラーレスポンス
+  def handle_unsupported_method(id, method_name)
+    McpLogger.warn "サポートされていないメソッド呼び出し: #{method_name}"
+    JsonrpcHelper.create_error_response(id, "サポートされていないメソッドです#{method_name}", JsonrpcErrorCodes::METHOD_NOT_FOUND)
+  end
+
+  # tools/callメソッドのハンドラ
   # @param [String, Integer] id JSONRPCリクエストのID
   # @param [Hash] params リクエストパラメータ
+  # @option params [String] 'name' 呼び出すツール名
+  # @option params [Hash] 'arguments' ツール固有の引数
+  # @return [Hash] JSONRPCレスポンス
+  def handle_tool_call(id, params)
+    # 必須パラメータの確認
+    unless params['name']
+      return JsonrpcHelper.create_error_response(id, 'ツール名が指定されていません', JsonrpcErrorCodes::INVALID_PARAMS)
+    end
+
+    tool_name = params['name']
+    tool_params = params['arguments'] || {}
+    
+    # ツール名に応じた処理
+    case tool_name
+    when 'tools/redmine_ticket'
+      handle_redmine_ticket_tool(id, tool_params)
+    else
+      McpLogger.warn "サポートされていないツール呼び出し: #{tool_name}"
+      JsonrpcHelper.create_error_response(id, "サポートされていないツールです: #{tool_name}", JsonrpcErrorCodes::METHOD_NOT_FOUND)
+    end
+  end
+
+  # Redmineチケット情報を取得するツール処理
+  # @param [String, Integer] id JSONRPCリクエストのID
+  # @param [Hash] params ツールパラメータ
   # @option params [String] 'ticket_id' 取得するRedmineチケットのID
   # @return [Hash] JSONRPCレスポンス
-  def handle_redmine_ticket(id, params)
+  def handle_redmine_ticket_tool(id, params)
     # チケットIDの確認
     unless params['ticket_id']
       return JsonrpcHelper.create_error_response(id, 'チケットIDが指定されていません', JsonrpcErrorCodes::INVALID_PARAMS)
@@ -81,15 +114,6 @@ class RedmineMcpHandler
     })
   end
 
-  # サポートされていないメソッドのエラーハンドラ
-  # @param [String, Integer] id JSONRPCリクエストのID
-  # @param [String] method_name サポートされていないメソッド名
-  # @return [Hash] JSONRPCエラーレスポンス
-  def handle_unsupported_method(id, method_name)
-    McpLogger.warn "サポートされていないメソッド呼び出し: #{method_name}"
-    JsonrpcHelper.create_error_response(id, 'サポートされていないメソッドです', JsonrpcErrorCodes::METHOD_NOT_FOUND)
-  end
-
   # メソッドに応じたハンドラの実行
   # @param [String] method 呼び出されたメソッド名
   # @param [String, Integer] id JSONRPCリクエストのID
@@ -101,8 +125,8 @@ class RedmineMcpHandler
       handle_initialize(id)
     when 'tools/list'
       handle_tool_list(id)
-    when 'tools/redmine_ticket'
-      handle_redmine_ticket(id, params)
+    when 'tools/call'
+      handle_tool_call(id, params)
     else
       handle_unsupported_method(id, method)
     end
