@@ -107,10 +107,17 @@ class RedmineMcpHandler
       return JsonrpcHelper.create_error_response(id, ticket_data[:error], JsonrpcErrorCodes::SERVER_ERROR)
     end
 
-    # 成功レスポンス
+    # MCP 2024-11-05の仕様に準拠したレスポンス形式
+    # チケットデータをJSON文字列にフォーマットして返す
+    formatted_ticket = JSON.pretty_generate(ticket_data['issue'])
+    
     JsonrpcHelper.create_response(id, {
-      status: 'success',
-      ticket: ticket_data['issue']
+      content: [
+        {
+          type: 'text',
+          text: "チケット情報 ##{params['ticket_id']}:\n#{formatted_ticket}"
+        }
+      ]
     })
   end
 
