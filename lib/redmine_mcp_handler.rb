@@ -1,12 +1,12 @@
 require 'jsonrpc_helper'
 require 'redmine_api_client'
+require 'mcp_logger'
 
 # RedmineMCPサーバーの共通ハンドラ
 class RedmineMcpHandler
-  def initialize(logger, server_type = 'http')
-    @logger = logger
+  def initialize(server_type = 'http')
     @server_type = server_type
-    @redmine_client = RedmineApiClient.new(logger)
+    @redmine_client = RedmineApiClient.new
     @vendor = server_type == 'stdio' ? 'kurubishionline' : 'Custom'
   end
 
@@ -79,7 +79,7 @@ class RedmineMcpHandler
 
   # サポートされていないメソッドのエラーハンドラ
   def handle_unsupported_method(id, method_name)
-    @logger.warn "サポートされていないメソッド呼び出し: #{method_name}"
+    McpLogger.warn "サポートされていないメソッド呼び出し: #{method_name}"
     JsonrpcHelper.create_error_response(id, 'サポートされていないメソッドです', -32601) # Method not found
   end
 

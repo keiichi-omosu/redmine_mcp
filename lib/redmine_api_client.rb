@@ -1,14 +1,14 @@
 require 'rest-client'
 require 'json'
+require 'mcp_logger'
 
 # Redmine APIとの通信を管理するクラス
 class RedmineApiClient
-  def initialize(logger)
-    @logger = logger
+  def initialize
     @redmine_url = ENV.fetch('REDMINE_URL', 'http://localhost:8080')
     @api_key = ENV.fetch('REDMINE_API_KEY', '')
     
-    @logger.info "Redmine接続先設定: #{@redmine_url}"
+    McpLogger.info "Redmine接続先設定: #{@redmine_url}"
   end
 
   # Redmineからチケット情報を取得する関数

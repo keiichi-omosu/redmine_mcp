@@ -7,16 +7,16 @@ require 'logger'
 $LOAD_PATH.unshift(File.expand_path(File.join(File.dirname(__FILE__), 'lib')))
 require 'redmine_mcp_handler'
 require 'jsonrpc_helper'
+require 'mcp_logger'
 
 # ロガーの設定
-$logger = Logger.new(STDERR)
-$logger.level = Logger::INFO
+McpLogger.setup(STDERR, Logger::INFO)
 
 # MCPハンドラの初期化
-mcp_handler = RedmineMcpHandler.new($logger, 'stdio')
+mcp_handler = RedmineMcpHandler.new('stdio')
 
 # 起動メッセージ
-$logger.info "Redmine MCP STDIOサーバーが起動しました"
+McpLogger.info "Redmine MCP STDIOサーバーが起動しました"
 
 # 標準入力から読み込みを行うメインループ
 while line = STDIN.gets
@@ -29,7 +29,7 @@ while line = STDIN.gets
     
     # 不正なリクエストの検出
     unless JsonrpcHelper.validate_request(request_payload)
-      $logger.warn "不正なJSONRPCリクエスト受信"
+      McpLogger.warn "不正なJSONRPCリクエスト受信"
       STDOUT.puts JsonrpcHelper.create_error_response(nil, '不正なJSONRPCリクエストです', -32600).to_json
       STDOUT.flush
       next
@@ -42,12 +42,12 @@ while line = STDIN.gets
     
     # 通知メソッド（notifications/initialized）の場合は応答しない
     if method == 'notifications/initialized'
-      $logger.info "通知メソッド受信（応答なし）: #{method}"
+      McpLogger.info "通知メソッド受信（応答なし）: #{method}"
       next
     end
     
     # ログ出力
-    $logger.info "RPCリクエスト受信: method=#{method}, id=#{id}"
+    McpLogger.info "RPCリクエスト受信: method=#{method}, id=#{id}"
     
     # ハンドラ実行
     response = mcp_handler.handle_method(method, id, params)
@@ -57,8 +57,8 @@ while line = STDIN.gets
     STDOUT.flush
   rescue StandardError => e
     # エラー処理
-    $logger.error "エラーが発生しました: #{e.message}"
-    $logger.error e.backtrace.join("\n") if e.backtrace
+    McpLogger.error "エラーが発生しました: #{e.message}"
+    McpLogger.error e.backtrace.join("\n") if e.backtrace
     
     STDOUT.puts JsonrpcHelper.create_error_response(nil, "エラーが発生しました: #{e.message}", -32603).to_json
     STDOUT.flush

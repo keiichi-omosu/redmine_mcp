@@ -6,6 +6,7 @@ require 'logger'
 $LOAD_PATH.unshift(File.expand_path(File.join(File.dirname(__FILE__), 'lib')))
 require 'redmine_mcp_handler'
 require 'jsonrpc_helper'
+require 'mcp_logger'
 
 # サーバー設定
 set :port, ENV.fetch('PORT', 3000)
@@ -20,10 +21,10 @@ def set_json_headers
 end
 
 # ロガーの設定
-$logger = Logger.new(STDERR)
+McpLogger.setup(STDERR, Logger::INFO)
 
 # MCPハンドラの初期化
-mcp_handler = RedmineMcpHandler.new($logger, 'http')
+mcp_handler = RedmineMcpHandler.new('http')
 
 # RPCエンドポイントの実装
 post '/rpc' do
@@ -33,7 +34,7 @@ post '/rpc' do
     
     # 不正なリクエストの検出
     unless JsonrpcHelper.validate_request(request_payload)
-      $logger.warn "不正なJSONRPCリクエスト受信"
+      McpLogger.warn "不正なJSONRPCリクエスト受信"
       status 200
       set_json_headers
       return JsonrpcHelper.create_error_response(nil, '不正なJSONRPCリクエストです', -32600).to_json # Invalid Request
@@ -45,7 +46,7 @@ post '/rpc' do
     id = request_payload['id']
     
     # ログ出力
-    $logger.info "RPCリクエスト受信: method=#{method}, id=#{id}"
+    McpLogger.info "RPCリクエスト受信: method=#{method}, id=#{id}"
     
     # JSON形式のヘッダー設定
     status 200
@@ -58,8 +59,8 @@ post '/rpc' do
     response.to_json
   rescue StandardError => e
     # エラー処理
-    $logger.error "エラーが発生しました: #{e.message}"
-    $logger.error e.backtrace.join("\n") if e.backtrace
+    McpLogger.error "エラーが発生しました: #{e.message}"
+    McpLogger.error e.backtrace.join("\n") if e.backtrace
     
     status 200
     set_json_headers
