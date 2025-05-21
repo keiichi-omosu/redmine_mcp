@@ -1,6 +1,11 @@
 require 'sinatra'
 require 'json'
-require 'rest-client'
+require 'logger'
+
+# libディレクトリをロードパスに追加
+$LOAD_PATH.unshift(File.expand_path(File.join(File.dirname(__FILE__), 'lib')))
+require 'redmine_mcp_handler'
+require 'jsonrpc_helper'
 
 # サーバー設定
 set :port, ENV.fetch('PORT', 3000)
@@ -8,122 +13,17 @@ set :bind, ENV.fetch('BIND', '0.0.0.0')
 set :server, :puma  # Pumaを明示的に指定
 enable :logging     # ログを有効化
 
-# Redmine APIクライアントの設定
-REDMINE_URL = ENV.fetch('REDMINE_URL', 'http://redmine:3000')
-REDMINE_API_KEY = ENV.fetch('REDMINE_API_KEY', '')
-
-# Redmineからチケット情報を取得する関数
-def fetch_ticket(ticket_id)
-  response = RestClient.get(
-    "#{REDMINE_URL}/issues/#{ticket_id}.json", 
-    {
-      'X-Redmine-API-Key' => REDMINE_API_KEY,
-      'Content-Type' => 'application/json'
-    }
-  )
-  JSON.parse(response.body)
-rescue RestClient::ExceptionWithResponse => e
-  { error: "APIエラー: #{e.response}", status_code: e.response.code }
-rescue StandardError => e
-  { error: "エラーが発生しました: #{e.message}" }
-end
-
 # JSONレスポンスのヘッダーを設定するヘルパーメソッド
 def set_json_headers
   content_type 'application/json'
   headers 'Cache-Control' => 'no-cache'
 end
 
-# JSONRPCレスポンスを生成するヘルパーメソッド
-def create_jsonrpc_response(id, result)
-  {
-    jsonrpc: '2.0',
-    id: id,
-    result: result
-  }
-end
+# ロガーの設定
+$logger = Logger.new(STDERR)
 
-# JSONRPCエラーレスポンスを生成するヘルパーメソッド
-def create_jsonrpc_error_response(id, message, code = -32603)
-  {
-    jsonrpc: '2.0',
-    id: id,
-    error: {
-      code: code,
-      message: message
-    }
-  }
-end
-
-# MCP initializeメソッドのハンドラ
-def handle_initialize(id)
-  create_jsonrpc_response(id, {
-    server: 'Redmine MCP Server',
-    version: '1.0.0',
-    protocolVersion: '2024-11-05',  # プロトコルバージョンを2024-11-05に変更
-    capabilities: {
-      "tools": {
-        "listChanged": true 
-      }
-    },
-    serverInfo: {
-      name: 'Redmine MCP',
-      description: 'RedmineチケットをAIに提供するためのMCPサーバー',
-      vendor: 'Custom',
-      version: '1.0.0'  # Claude (cline) が要求する serverInfo 内のバージョン情報
-    }
-  })
-end
-
-# tools/list メソッドのハンドラ
-def handle_tool_list(id)
-  create_jsonrpc_response(id, {
-    tools: [
-      {
-        name: 'tools/redmine_ticket',
-        description: 'Redmineのチケット情報を取得するAI専用ツール。ユーザーからチケット番号を指定された場合、必ずこのツールを使って取得してください。直接APIを叩いたり、コードを生成せず、ツール経由のみで取得してください。',
-        parameters: {
-          type: 'object',
-          properties: {
-            ticket_id: {
-              type: 'string',
-              description: '取得するRedmineチケットのID'
-            }
-          },
-          required: ['ticket_id']
-        }
-      }
-    ]
-  })
-end
-
-# tools/redmine_ticketメソッドのハンドラ
-def handle_redmine_ticket(id, params)
-  # チケットIDの確認
-  unless params['ticket_id']
-    return create_jsonrpc_error_response(id, 'チケットIDが指定されていません', -32602) # Invalid params
-  end
-
-  # チケット情報取得
-  ticket_data = fetch_ticket(params['ticket_id'])
-  
-  # エラー処理
-  if ticket_data[:error]
-    return create_jsonrpc_error_response(id, ticket_data[:error], -32000) # Server error
-  end
-
-  # 成功レスポンス
-  create_jsonrpc_response(id, {
-    status: 'success',
-    ticket: ticket_data['issue']
-  })
-end
-
-# サポートされていないメソッドのエラーハンドラ
-def handle_unsupported_method(id, method_name)
-  logger.warn "サポートされていないメソッド呼び出し: #{method_name}"
-  create_jsonrpc_error_response(id, 'サポートされていないメソッドです', -32601) # Method not found
-end
+# MCPハンドラの初期化
+mcp_handler = RedmineMcpHandler.new($logger, 'http')
 
 # RPCエンドポイントの実装
 post '/rpc' do
@@ -132,11 +32,11 @@ post '/rpc' do
     request_payload = JSON.parse(request.body.read) if request.content_length.to_i > 0
     
     # 不正なリクエストの検出
-    unless request_payload && request_payload['jsonrpc'] == '2.0'
-      logger.warn "不正なJSONRPCリクエスト受信"
+    unless JsonrpcHelper.validate_request(request_payload)
+      $logger.warn "不正なJSONRPCリクエスト受信"
       status 200
       set_json_headers
-      return create_jsonrpc_error_response(nil, '不正なJSONRPCリクエストです', -32600).to_json # Invalid Request
+      return JsonrpcHelper.create_error_response(nil, '不正なJSONRPCリクエストです', -32600).to_json # Invalid Request
     end
     
     # リクエスト情報の取得
@@ -145,34 +45,25 @@ post '/rpc' do
     id = request_payload['id']
     
     # ログ出力
-    logger.info "RPCリクエスト受信: method=#{method}, id=#{id}"
+    $logger.info "RPCリクエスト受信: method=#{method}, id=#{id}"
     
     # JSON形式のヘッダー設定
     status 200
     set_json_headers
     
-    # メソッドに応じたハンドラの呼び出し
-    response = case method
-               when 'initialize'
-                 handle_initialize(id)
-               when 'tools/list'
-                 handle_tool_list(id)
-               when 'tools/redmine_ticket'
-                 handle_redmine_ticket(id, params)
-               else
-                 handle_unsupported_method(id, method)
-               end
+    # ハンドラ実行
+    response = mcp_handler.handle_method(method, id, params)
     
     # レスポンス送信
     response.to_json
   rescue StandardError => e
     # エラー処理
-    logger.error "エラーが発生しました: #{e.message}"
-    logger.error e.backtrace.join("\n") if e.backtrace
+    $logger.error "エラーが発生しました: #{e.message}"
+    $logger.error e.backtrace.join("\n") if e.backtrace
     
     status 200
     set_json_headers
-    create_jsonrpc_error_response(nil, "エラーが発生しました: #{e.message}", -32603).to_json # Internal error
+    JsonrpcHelper.create_error_response(nil, "エラーが発生しました: #{e.message}", -32603).to_json # Internal error
   end
 end
 
