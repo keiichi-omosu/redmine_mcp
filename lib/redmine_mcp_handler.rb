@@ -37,7 +37,7 @@ class RedmineMcpHandler
     JsonrpcHelper.create_response(id, {
       tools: [
         {
-          name: 'tools/redmine_ticket',
+          name: 'get_redmine_ticket',
           description: 'Redmineのチケット情報を取得するAI専用ツール。ユーザーからチケット番号を指定された場合、必ずこのツールを使って取得してください。直接APIを叩いたり、コードを生成せず、ツール経由のみで取得してください。',
           inputSchema: {
             type: 'object',
@@ -80,7 +80,7 @@ class RedmineMcpHandler
     
     # ツール名に応じた処理
     case tool_name
-    when 'tools/redmine_ticket'
+    when 'get_redmine_ticket'
       handle_redmine_ticket_tool(id, tool_params)
     else
       McpLogger.warn "サポートされていないツール呼び出し: #{tool_name}"
