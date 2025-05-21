@@ -7,13 +7,7 @@ require 'logger'
 # ロガーの設定
 $logger = Logger.new(STDERR)
 $logger.level = Logger::INF# メソッドに応じたハンドラの呼び出し
-    response = case method
-               when 'initialize'
-                 handle_initialize(id)
-               when 'tools/list'
-                 handle_tool_list(id)
-               when 'tools/redmine_ticket'
-                 handle_redmine_ticket(id)mine APIクライアントの設定
+
 # ローカル環境ではlocalhost:8080、Docker環境ではredmineホスト名を使用
 REDMINE_URL = ENV.fetch('REDMINE_URL', 'http://localhost:8080')
 REDMINE_API_KEY = ENV.fetch('REDMINE_API_KEY', '')
@@ -65,9 +59,9 @@ def handle_initialize(id)
     version: '1.0.0',
     protocolVersion: '2024-11-05',  # プロトコルバージョンを2024-11-05に変更
     capabilities: {
-      streaming: false,
-      asyncTools: false,
-      authentication: false
+    "tools": {
+        "listChanged": true 
+      }
     },
     serverInfo: {
       name: 'Redmine MCP',

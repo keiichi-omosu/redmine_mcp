@@ -69,9 +69,9 @@ def handle_initialize(id)
     version: '1.0.0',
     protocolVersion: '2024-11-05',  # プロトコルバージョンを2024-11-05に変更
     capabilities: {
-      streaming: false,
-      asyncTools: false,
-      authentication: false
+      "tools": {
+        "listChanged": true 
+      }
     },
     serverInfo: {
       name: 'Redmine MCP',
