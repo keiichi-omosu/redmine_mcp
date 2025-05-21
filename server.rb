@@ -82,7 +82,7 @@ def handle_initialize(id)
   })
 end
 
-# mcp.tool.listメソッドのハンドラ
+# tools/list メソッドのハンドラ
 def handle_tool_list(id)
   create_jsonrpc_response(id, {
     tools: [
@@ -162,7 +162,7 @@ post '/rpc' do
     response = case method
                when 'initialize'
                  handle_initialize(id)
-               when 'mcp.tool.list'
+               when 'tools/list'
                  handle_tool_list(id)
                when 'tools/redmine_ticket'
                  handle_redmine_ticket(id, params)
