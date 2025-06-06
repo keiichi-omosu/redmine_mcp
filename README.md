@@ -100,6 +100,57 @@ echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_redmin
 
 正常に動作していれば、指定したチケット情報がJSON形式で返されます。
 
+### 自動テストの実行方法
+
+本プロジェクトではminitestを使用した自動テストが実装されています。以下の方法でテストを実行できます：
+
+1. すべてのテストを実行
+   ```bash
+   bundle exec rake test
+   ```
+
+2. ユニットテストのみ実行
+   ```bash
+   bundle exec rake test_unit
+   ```
+
+3. 統合テストのみ実行
+   ```bash
+   bundle exec rake test_integration
+   ```
+
+4. 特定のテストファイルのみ実行
+   ```bash
+   bundle exec rake test_file TEST=test/unit/jsonrpc_helper_test.rb
+   ```
+
+テスト実行時には、以下の環境変数を設定することができます：
+- `REDMINE_URL`: テスト用RedmineサーバーのURL（デフォルト: "http://localhost:8080"）
+- `REDMINE_API_KEY`: テスト用RedmineのAPIキー（デフォルト: "test_api_key"）
+
+### 新しいテストの追加方法
+
+新しいテストを追加する場合は、以下の手順で行います：
+
+1. ユニットテストの場合は `test/unit/` ディレクトリに、統合テストの場合は `test/integration/` ディレクトリにテストファイルを作成します。
+2. ファイル名は必ず `_test.rb` で終わるようにします（例: `my_module_test.rb`）。
+3. テストファイルの先頭で `require 'test_helper'` を記述します。
+4. `Minitest::Test` を継承したテストクラスを作成します。
+5. テストメソッドは `test_` で始まる名前にします。
+
+例：
+```ruby
+require 'test_helper'
+require 'my_module'
+
+class MyModuleTest < Minitest::Test
+  def test_my_function
+    result = MyModule.my_function
+    assert_equal expected, result
+  end
+end
+```
+
 ## セキュリティについて
 
 このツールはRedmineチケットの情報をAIに安全に提供します。APIキーは環境変数として保存され、外部に漏れないように注意してください。

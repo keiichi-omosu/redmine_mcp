@@ -1,30 +1,30 @@
 require 'rake/testtask'
 
 desc 'すべてのテストを実行'
-task :test do
-  Rake::TestTask.new do |t|
-    t.libs << 'test'
-    t.test_files = FileList['test/**/*_test.rb']
-    t.verbose = true
-  end
+Rake::TestTask.new(:test) do |t|
+  t.libs << 'test'
+  t.libs << 'lib'
+  t.pattern = 'test/**/*_test.rb'
+  t.verbose = true
+  t.warning = false
 end
 
 desc 'ユニットテストを実行'
-task :test_unit do
-  Rake::TestTask.new(:unit) do |t|
-    t.libs << 'test'
-    t.test_files = FileList['test/unit/*_test.rb']
-    t.verbose = true
-  end
+Rake::TestTask.new(:test_unit) do |t|
+  t.libs << 'test'
+  t.libs << 'lib'
+  t.pattern = 'test/unit/**/*_test.rb'
+  t.verbose = true
+  t.warning = false
 end
 
 desc '統合テストを実行'
-task :test_integration do
-  Rake::TestTask.new(:integration) do |t|
-    t.libs << 'test'
-    t.test_files = FileList['test/integration/*_test.rb']
-    t.verbose = true
-  end
+Rake::TestTask.new(:test_integration) do |t|
+  t.libs << 'test'
+  t.libs << 'lib'
+  t.pattern = 'test/integration/**/*_test.rb'
+  t.verbose = true
+  t.warning = false
 end
 
 # 特定のテストファイルを実行するためのタスク
@@ -42,7 +42,7 @@ task :test_file do
     exit 1
   end
 
-  ruby "-I test #{test_file}"
+  sh "ruby -I test -I lib #{test_file}"
 end
 
 # デフォルトタスク
