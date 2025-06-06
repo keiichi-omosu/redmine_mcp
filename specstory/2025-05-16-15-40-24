@@ -214,3 +214,270 @@ end
 
 ---
 
+_**User**_
+
+はい
+
+---
+
+_**Assistant**_
+
+test_helper.rbを実装します。 ### ステップ3: Rakefileの実装
+
+次に、Rakefileを実装します。テスト実行用のタスクを定義します。
+
+```ruby
+require 'rake/testtask'
+
+desc 'すべてのテストを実行'
+task default: :test
+
+desc 'すべてのテストを実行'
+Rake::TestTask.new(:test) do |t|
+  t.libs << 'test'
+  t.libs << 'lib'
+  t.test_files = FileList['test/**/*_test.rb']
+  t.verbose = true
+  t.warning = false
+end
+
+desc 'ユニットテストのみ実行'# filepath: /Users/kurubushionline/work/redmine_mcp/Rakefile
+require 'rake/testtask'
+
+desc 'すべてのテストを実行'
+task default: :test
+
+desc 'すべてのテストを実行'
+Rake::TestTask.new(:test) do |t|
+  t.libs << 'test'
+  t.libs << 'lib'
+  t.test_files = FileList['test/**/*_test.rb']
+  t.verbose = true
+  t.warning = false
+end
+
+desc 'ユニットテストのみ実行'
+
+---
+
+_**User**_
+
+次のステップを進めてください
+
+---
+
+_**Assistant**_
+
+### ステップ3: Rakefileの実装
+
+次に、テスト実行用のRakefileを実装します。以下の内容で実装する予定です：
+
+```ruby
+require 'rake/testtask'
+
+desc 'すべてのテストを実行'
+task :test do
+  Rake::TestTask.new do |t|
+    t.libs << 'test'
+    t.test_files = FileList['test/**/*_test.rb']
+    t.verbose = true
+  end
+end
+
+desc 'ユニットテストを実行'
+task :test_unit do
+  Rake::TestTask.new(:unit) do |t|
+    t.libs << 'test'
+    t.test_files = FileList['test/unit/*_test.rb']
+    t.verbose = true
+  end
+end
+
+desc '統合テストを実行'
+task :test_integration do
+  Rake::TestTask.new(:integration) do |t|
+    t.libs << 'test'
+    t.test_files = FileList['test/integration/*_test.rb']
+    t.verbose = true
+  end
+end
+
+# デフォルトタスク
+task default: :test
+```
+
+この内容で良ければ実装を進めます。問題なければ「はい」とお返事ください。
+
+---
+
+_**User**_
+
+特定のテストを実行したい場合はどうしたらいいですか？
+
+---
+
+_**Assistant**_
+
+特定のテストを実行したい場合のオプションをRakefileに追加しましょう。Rakefileを以下のように実装します：
+
+```ruby
+require 'rake/testtask'
+
+desc 'すべてのテストを実行'
+task :test do
+  Rake::TestTask.new do |t|
+    t.libs << 'test'
+    t.test_files = FileList['test/**/*_test.rb']
+    t.verbose = true
+  end
+end
+
+desc 'ユニットテストを実行'
+task :test_unit do
+  Rake::TestTask.new(:unit) do |t|
+    t.libs << 'test'
+    t.test_files = FileList['test/unit/*_test.rb']
+    t.verbose = true
+  end
+end
+
+desc '統合テストを実行'
+task :test_integration do
+  Rake::TestTask.new(:integration) do |t|
+    t.libs << 'test'
+    t.test_files = FileList['test/integration/*_test.rb']
+    t.verbose = true
+  end
+end
+
+# 特定のテストファイルを実行するためのタスク
+# 使用例: rake test_file TEST=test/unit/jsonrpc_helper_test.rb
+desc '特定のテストファイルを実行'
+task :test_file do
+  test_file = ENV['TEST']
+  if test_file.nil? || test_file.empty?
+    puts "エラー: テストファイルを指定してください。例: rake test_file TEST=test/unit/jsonrpc_helper_test.rb"
+    exit 1
+  end
+
+  unless File.exist?(test_file)
+    puts "エラー: 指定されたテストファイル '#{test_file}' が存在しません。"
+    exit 1
+  end
+
+  ruby "-I test #{test_file}"
+end
+
+# 特定のテストメソッドを実行するためのタスク
+# 使用例: rake test_name TEST=test/unit/jsonrpc_helper_test.rb NAME=test_create_response
+desc '特定のテストメソッドを実行'
+task :test_name do
+  test_file = ENV['TEST']
+  test_name = ENV['NAME']
+  
+  if test_file.nil? || test_file.empty?
+    puts "エラー: テストファイルを指定してください。例: rake test_name TEST=test/unit/jsonrpc_helper_test.rb NAME=test_create_response"
+    exit 1
+  end
+  
+  if test_name.nil? || test_name.empty?
+    puts "エラー: テストメソッド名を指定してください。例: rake test_name TEST=test/unit/jsonrpc_helper_test.rb NAME=test_create_response"
+    exit 1
+  end
+
+  unless File.exist?(test_file)
+    puts "エラー: 指定されたテストファイル '#{test_file}' が存在しません。"
+    exit 1
+  end
+
+  ruby "-I test #{test_file} -n #{test_name}"
+end
+
+# デフォルトタスク
+task default: :test
+```
+
+この実装では、以下の方法で特定のテストを実行できます：
+
+1. **特定のテストファイルを実行する場合**:
+   ```
+   rake test_file TEST=test/unit/jsonrpc_helper_test.rb
+   ```
+
+2. **特定のテストメソッドを実行する場合**:
+   ```
+   rake test_name TEST=test/unit/jsonrpc_helper_test.rb NAME=test_create_response
+   ```
+
+これでよろしければ、Rakefileを実装します。問題なければ「はい」とお返事ください。
+
+---
+
+_**User**_
+
+メソッドは一旦不要でテストのみでお願いします。またテストの指定は環境変数ではなく、rakeタスクの引数で実装できますか？
+
+---
+
+_**Assistant**_
+
+承知しました。特定のメソッドは一旦除外し、テストファイルの指定はrakeタスクの引数で行えるようにRakefileを修正します。
+
+以下のようなRakefileを実装します：
+
+```ruby
+require 'rake/testtask'
+
+desc 'すべてのテストを実行'
+Rake::TestTask.new(:test) do |t|
+  t.libs << 'test'
+  t.test_files = FileList['test/**/*_test.rb']
+  t.verbose = true
+end
+
+desc 'ユニットテストを実行'
+Rake::TestTask.new(:test_unit) do |t|
+  t.libs << 'test'
+  t.test_files = FileList['test/unit/*_test.rb']
+  t.verbose = true
+end
+
+desc '統合テストを実行'
+Rake::TestTask.new(:test_integration) do |t|
+  t.libs << 'test'
+  t.test_files = FileList['test/integration/*_test.rb']
+  t.verbose = true
+end
+
+# 特定のテストファイルを実行するためのタスク
+# 使用例: rake test_file[test/unit/jsonrpc_helper_test.rb]
+desc '特定のテストファイルを実行'
+task :test_file, [:file_path] do |_, args|
+  if args[:file_path].nil? || args[:file_path].empty?
+    puts "エラー: テストファイルを指定してください。例: rake test_file[test/unit/jsonrpc_helper_test.rb]"
+    exit 1
+  end
+
+  file_path = args[:file_path]
+  unless File.exist?(file_path)
+    puts "エラー: 指定されたテストファイル '#{file_path}' が存在しません。"
+    exit 1
+  end
+
+  sh "ruby -I test #{file_path}"
+end
+
+# デフォルトタスク
+task default: :test
+```
+
+これで、特定のテストファイルを以下のように実行できます：
+
+```
+rake test_file[test/unit/jsonrpc_helper_test.rb]
+```
+
+この実装でよろしければ、Rakefileを作成します。問題なければ「はい」とお返事ください。
+
+---
+
