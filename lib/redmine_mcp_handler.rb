@@ -49,6 +49,49 @@ class RedmineMcpHandler
             },
             required: ['ticket_id']
           }
+        },
+        {
+          name: 'create_redmine_ticket',
+          description: 'Redmineに新しいチケットを作成するAI専用ツール。プロジェクトの指定はIDまたは名前で可能です。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_id: {
+                type: 'string',
+                description: 'プロジェクトID'
+              },
+              project_name: {
+                type: 'string',
+                description: 'プロジェクト名'
+              },
+              subject: {
+                type: 'string',
+                description: 'チケットのタイトル（必須）'
+              },
+              description: {
+                type: 'string',
+                description: 'チケットの詳細説明'
+              },
+              tracker_id: {
+                type: 'string',
+                description: 'トラッカーID'
+              },
+              status_id: {
+                type: 'string',
+                description: 'ステータスID'
+              },
+              priority_id: {
+                type: 'string',
+                description: '優先度ID'
+              },
+              custom_field_values: {
+                type: 'object',
+                description: 'カスタムフィールドの値（例: {"1": "値1", "2": "値2"}）'
+              }
+            },
+            required: ['subject'],
+            additionalProperties: true
+          }
         }
       ]
     })
@@ -70,7 +113,6 @@ class RedmineMcpHandler
   # @option params [Hash] 'arguments' ツール固有の引数
   # @return [Hash] JSONRPCレスポンス
   def handle_tool_call(id, params)
-    # 必須パラメータの確認
     unless params['name']
       return JsonrpcHelper.create_error_response(id, 'ツール名が指定されていません', JsonrpcErrorCodes::INVALID_PARAMS)
     end
@@ -78,10 +120,11 @@ class RedmineMcpHandler
     tool_name = params['name']
     tool_params = params['arguments'] || {}
     
-    # ツール名に応じた処理
     case tool_name
     when 'get_redmine_ticket'
       handle_redmine_ticket_tool(id, tool_params)
+    when 'create_redmine_ticket'
+      handle_create_redmine_ticket_tool(id, tool_params)
     else
       McpLogger.warn "サポートされていないツール呼び出し: #{tool_name}"
       JsonrpcHelper.create_error_response(id, "サポートされていないツールです: #{tool_name}", JsonrpcErrorCodes::METHOD_NOT_FOUND)
@@ -116,6 +159,56 @@ class RedmineMcpHandler
         {
           type: 'text',
           text: "チケット情報 ##{params['ticket_id']}:\n#{formatted_ticket}"
+        }
+      ]
+    })
+  end
+
+  # Redmineチケットを作成するツール処理
+  # @param [String, Integer] id JSONRPCリクエストのID
+  # @param [Hash] params ツールパラメータ
+  # @return [Hash] JSONRPCレスポンス
+  def handle_create_redmine_ticket_tool(id, params)
+    if params['subject'].nil? || params['subject'].empty?
+      return JsonrpcHelper.create_error_response(id, 'チケットのタイトルが指定されていません', JsonrpcErrorCodes::INVALID_PARAMS)
+    end
+
+    if params['project_id'].nil? && params['project_name'].nil?
+      return JsonrpcHelper.create_error_response(id, 'プロジェクトIDまたはプロジェクト名のいずれかが必要です', JsonrpcErrorCodes::INVALID_PARAMS)
+    end
+    
+    project_id = params['project_id']
+    if project_id.nil? && params['project_name']
+      result = @redmine_client.project_id_by_name(params['project_name'])
+      if result.is_a?(Hash) && result[:error]
+        return JsonrpcHelper.create_error_response(id, result[:error], JsonrpcErrorCodes::SERVER_ERROR)
+      end
+      project_id = result
+    end
+    
+    ticket_data = {
+      project_id: project_id,
+      subject: params['subject']
+    }
+    
+    params.each do |key, value|
+      next if ['project_id', 'project_name', 'subject'].include?(key)
+      ticket_data[key.to_sym] = value
+    end
+    
+    result = @redmine_client.create_ticket(ticket_data)
+    
+    if result[:error]
+      return JsonrpcHelper.create_error_response(id, result[:error], JsonrpcErrorCodes::SERVER_ERROR)
+    end
+    
+    created_ticket = result['issue']
+    
+    JsonrpcHelper.create_response(id, {
+      content: [
+        {
+          type: 'text',
+          text: "チケットを作成しました ##{created_ticket['id']}: #{created_ticket['subject']}"
         }
       ]
     })
