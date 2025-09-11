@@ -95,6 +95,47 @@ class RedmineApiClient
     { error: "エラーが発生しました: #{e.message}" }
   end
 
+  # プロジェクトのWikiページ一覧を取得する関数
+  # @param [String] project_id プロジェクトIDまたは識別子
+  # @return [Hash] Wikiページ一覧、またはエラー情報を含むハッシュ
+  def fetch_wiki_pages(project_id)
+    response = RestClient.get(
+      "#{@redmine_url}/projects/#{project_id}/wiki/index.json",
+      {
+        'X-Redmine-API-Key' => @api_key,
+        'Content-Type' => 'application/json'
+      }
+    )
+    JSON.parse(response.body)
+  rescue RestClient::ExceptionWithResponse => e
+    McpLogger.error "Redmine Wiki一覧取得エラー: #{e.response.code} - #{e.response}"
+    { error: "Wiki一覧取得エラー: #{e.response}", status_code: e.response.code }
+  rescue StandardError => e
+    McpLogger.error "Redmine Wiki一覧取得中に例外が発生: #{e.message}"
+    { error: "エラーが発生しました: #{e.message}" }
+  end
+
+  # 特定のWikiページを取得する関数
+  # @param [String] project_id プロジェクトIDまたは識別子
+  # @param [String] wiki_page_name Wikiページ名
+  # @return [Hash] Wikiページ情報、またはエラー情報を含むハッシュ
+  def fetch_wiki_page(project_id, wiki_page_name)
+    response = RestClient.get(
+      "#{@redmine_url}/projects/#{project_id}/wiki/#{wiki_page_name}.json",
+      {
+        'X-Redmine-API-Key' => @api_key,
+        'Content-Type' => 'application/json'
+      }
+    )
+    JSON.parse(response.body)
+  rescue RestClient::ExceptionWithResponse => e
+    McpLogger.error "Redmine Wikiページ取得エラー: #{e.response.code} - #{e.response}"
+    { error: "Wikiページ取得エラー: #{e.response}", status_code: e.response.code }
+  rescue StandardError => e
+    McpLogger.error "Redmine Wikiページ取得中に例外が発生: #{e.message}"
+    { error: "エラーが発生しました: #{e.message}" }
+  end
+
   private
 
   # エラーレスポンスを解析する

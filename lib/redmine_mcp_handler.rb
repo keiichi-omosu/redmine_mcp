@@ -92,6 +92,48 @@ class RedmineMcpHandler
             required: ['subject'],
             additionalProperties: true
           }
+        },
+        {
+          name: 'get_redmine_wiki_pages',
+          description: 'Redmineプロジェクトのwikiページ一覧を取得するAI専用ツール。プロジェクトの指定はIDまたは名前で可能です。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_id: {
+                type: 'string',
+                description: 'プロジェクトID'
+              },
+              project_name: {
+                type: 'string',
+                description: 'プロジェクト名'
+              }
+            },
+            required: [],
+            additionalProperties: false
+          }
+        },
+        {
+          name: 'get_redmine_wiki_page',
+          description: 'Redmineプロジェクトの特定のwikiページ内容を取得するAI専用ツール。プロジェクトの指定はIDまたは名前で可能です。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_id: {
+                type: 'string',
+                description: 'プロジェクトID'
+              },
+              project_name: {
+                type: 'string',
+                description: 'プロジェクト名'
+              },
+              wiki_page_name: {
+                type: 'string',
+                description: '取得するwikiページ名（必須）'
+              }
+            },
+            required: ['wiki_page_name'],
+            additionalProperties: false
+          }
         }
       ]
     })
@@ -125,6 +167,10 @@ class RedmineMcpHandler
       handle_redmine_ticket_tool(id, tool_params)
     when 'create_redmine_ticket'
       handle_create_redmine_ticket_tool(id, tool_params)
+    when 'get_redmine_wiki_pages'
+      handle_redmine_wiki_pages_tool(id, tool_params)
+    when 'get_redmine_wiki_page'
+      handle_redmine_wiki_page_tool(id, tool_params)
     else
       McpLogger.warn "サポートされていないツール呼び出し: #{tool_name}"
       JsonrpcHelper.create_error_response(id, "サポートされていないツールです: #{tool_name}", JsonrpcErrorCodes::METHOD_NOT_FOUND)
@@ -209,6 +255,87 @@ class RedmineMcpHandler
         {
           type: 'text',
           text: "チケットを作成しました ##{created_ticket['id']}: #{created_ticket['subject']}"
+        }
+      ]
+    })
+  end
+
+  # RedmineのWikiページ一覧を取得するツール処理
+  # @param [String, Integer] id JSONRPCリクエストのID
+  # @param [Hash] params ツールパラメータ
+  # @option params [String] 'project_id' プロジェクトID
+  # @option params [String] 'project_name' プロジェクト名
+  # @return [Hash] JSONRPCレスポンス
+  def handle_redmine_wiki_pages_tool(id, params)
+    if params['project_id'].nil? && params['project_name'].nil?
+      return JsonrpcHelper.create_error_response(id, 'プロジェクトIDまたはプロジェクト名のいずれかが必要です', JsonrpcErrorCodes::INVALID_PARAMS)
+    end
+    
+    project_id = params['project_id']
+    if project_id.nil? && params['project_name']
+      result = @redmine_client.project_id_by_name(params['project_name'])
+      if result.is_a?(Hash) && result[:error]
+        return JsonrpcHelper.create_error_response(id, result[:error], JsonrpcErrorCodes::SERVER_ERROR)
+      end
+      project_id = result
+    end
+    
+    wiki_pages_data = @redmine_client.fetch_wiki_pages(project_id)
+    
+    if wiki_pages_data[:error]
+      return JsonrpcHelper.create_error_response(id, wiki_pages_data[:error], JsonrpcErrorCodes::SERVER_ERROR)
+    end
+    
+    formatted_pages = JSON.pretty_generate(wiki_pages_data)
+    
+    JsonrpcHelper.create_response(id, {
+      content: [
+        {
+          type: 'text',
+          text: "プロジェクト #{project_id} のWikiページ一覧:\n#{formatted_pages}"
+        }
+      ]
+    })
+  end
+
+  # Redmineの特定のWikiページを取得するツール処理
+  # @param [String, Integer] id JSONRPCリクエストのID
+  # @param [Hash] params ツールパラメータ
+  # @option params [String] 'project_id' プロジェクトID
+  # @option params [String] 'project_name' プロジェクト名
+  # @option params [String] 'wiki_page_name' Wikiページ名（必須）
+  # @return [Hash] JSONRPCレスポンス
+  def handle_redmine_wiki_page_tool(id, params)
+    unless params['wiki_page_name']
+      return JsonrpcHelper.create_error_response(id, 'Wikiページ名が指定されていません', JsonrpcErrorCodes::INVALID_PARAMS)
+    end
+    
+    if params['project_id'].nil? && params['project_name'].nil?
+      return JsonrpcHelper.create_error_response(id, 'プロジェクトIDまたはプロジェクト名のいずれかが必要です', JsonrpcErrorCodes::INVALID_PARAMS)
+    end
+    
+    project_id = params['project_id']
+    if project_id.nil? && params['project_name']
+      result = @redmine_client.project_id_by_name(params['project_name'])
+      if result.is_a?(Hash) && result[:error]
+        return JsonrpcHelper.create_error_response(id, result[:error], JsonrpcErrorCodes::SERVER_ERROR)
+      end
+      project_id = result
+    end
+    
+    wiki_page_data = @redmine_client.fetch_wiki_page(project_id, params['wiki_page_name'])
+    
+    if wiki_page_data[:error]
+      return JsonrpcHelper.create_error_response(id, wiki_page_data[:error], JsonrpcErrorCodes::SERVER_ERROR)
+    end
+    
+    formatted_page = JSON.pretty_generate(wiki_page_data['wiki_page'])
+    
+    JsonrpcHelper.create_response(id, {
+      content: [
+        {
+          type: 'text',
+          text: "Wikiページ \"#{params['wiki_page_name']}\" (プロジェクト: #{project_id}):\n#{formatted_page}"
         }
       ]
     })
