@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "redminemcp": {
+      "type": "stdio",
+      "command": "ruby",
+      "args": [
+        "redmine_mcp/stdio_server.rbへのパスを設定"
+      ],
+      "env": {
+        "REDMINE_URL": "http://localhost:8080",
+        "REDMINE_API_KEY": "apiキーを設定"
+      }
+    }
+  }
+}
