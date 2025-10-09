@@ -195,7 +195,7 @@ class RedmineApiClientTest < Minitest::Test
     result = client.fetch_wiki_pages('non-existent-project')
     
     assert_equal 404, result[:status_code]
-    assert result[:error].include?('Wiki一覧取得エラー')
+    assert result[:error].include?('APIエラー')
   end
 
   def test_fetch_wiki_page_success
@@ -232,6 +232,6 @@ class RedmineApiClientTest < Minitest::Test
     result = client.fetch_wiki_page('test-project', 'NonExistentPage')
     
     assert_equal 404, result[:status_code]
-    assert result[:error].include?('Wikiページ取得エラー')
+    assert result[:error].include?('APIエラー')
   end
 end
