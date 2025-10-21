@@ -1,5 +1,6 @@
 require 'rest-client'
 require 'json'
+require 'erb'
 require 'mcp_logger'
 
 # Redmine APIとの通信を管理するクラス
@@ -47,6 +48,26 @@ class RedmineApiClient
     end
   end
 
+  # プロジェクト名からプロジェクト識別子を取得する関数
+  # @param [String] project_name 検索するプロジェクト名
+  # @return [String, Hash] プロジェクト識別子、またはエラー情報を含むハッシュ
+  def project_identifier_by_name(project_name)
+    projects_data = fetch_projects
+    
+    if projects_data[:error]
+      return { error: projects_data[:error] }
+    end
+    
+    projects = projects_data['projects']
+    matching_project = projects.find { |p| p['name'] == project_name }
+    
+    if matching_project
+      matching_project['identifier']
+    else
+      { error: "プロジェクト名 '#{project_name}' に一致するプロジェクトが見つかりません" }
+    end
+  end
+
   # Redmineにチケットを作成する関数
   # @param [Hash] ticket_data チケット作成用のデータ
   # @return [Hash] 作成したチケット情報、またはエラー情報を含むハッシュ
@@ -58,7 +79,9 @@ class RedmineApiClient
   # @param [String] project_id プロジェクトIDまたは識別子
   # @return [Hash] Wikiページ一覧、またはエラー情報を含むハッシュ
   def fetch_wiki_pages(project_id)
-    make_request('GET', "/projects/#{project_id}/wiki/index.json", nil, 'Wiki一覧取得')
+    # プロジェクトIDをURLエンコード
+    encoded_project_id = ERB::Util.url_encode(project_id)
+    make_request('GET', "/projects/#{encoded_project_id}/wiki/index.json", nil, 'Wiki一覧取得')
   end
 
   # 特定のWikiページを取得する関数
@@ -66,7 +89,10 @@ class RedmineApiClient
   # @param [String] wiki_page_name Wikiページ名
   # @return [Hash] Wikiページ情報、またはエラー情報を含むハッシュ
   def fetch_wiki_page(project_id, wiki_page_name)
-    make_request('GET', "/projects/#{project_id}/wiki/#{wiki_page_name}.json", nil, 'Wikiページ取得')
+    # プロジェクトIDとWikiページ名をURLエンコード
+    encoded_project_id = ERB::Util.url_encode(project_id)
+    encoded_wiki_page_name = ERB::Util.url_encode(wiki_page_name)
+    make_request('GET', "/projects/#{encoded_project_id}/wiki/#{encoded_wiki_page_name}.json", nil, 'Wikiページ取得')
   end
 
   # プロジェクト名からWikiページを取得する関数
@@ -74,14 +100,14 @@ class RedmineApiClient
   # @param [String] wiki_page_name Wikiページ名
   # @return [Hash] Wikiページ情報、またはエラー情報を含むハッシュ
   def fetch_wiki_by_project_name(project_name, wiki_page_name)
-    # プロジェクトIDを取得
-    project_id_result = project_id_by_name(project_name)
+    # プロジェクト識別子を取得
+    project_identifier_result = project_identifier_by_name(project_name)
     
-    # プロジェクトID取得でエラーが発生した場合は、そのエラーを返す
-    return project_id_result if project_id_result.is_a?(Hash) && project_id_result[:error]
+    # プロジェクト識別子取得でエラーが発生した場合は、そのエラーを返す
+    return project_identifier_result if project_identifier_result.is_a?(Hash) && project_identifier_result[:error]
     
     # Wikiページを取得
-    fetch_wiki_page(project_id_result, wiki_page_name)
+    fetch_wiki_page(project_identifier_result, wiki_page_name)
   end
 
   private

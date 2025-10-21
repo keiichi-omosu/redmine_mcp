@@ -110,6 +110,65 @@ class RedmineApiClientTest < Minitest::Test
     assert result[:error].include?('見つかりません')
   end
 
+  def test_project_identifier_by_name_success
+    client = RedmineApiClient.new
+    
+    mock_response = mock
+    mock_response.stubs(:body).returns('{"projects":[{"id":1,"name":"Project 1","identifier":"project-1"},{"id":2,"name":"Project 2","identifier":"project-2"}]}')
+    
+    RestClient.stubs(:get).returns(mock_response)
+    
+    result = client.project_identifier_by_name('Project 2')
+    
+    assert_equal 'project-2', result
+  end
+
+  def test_project_identifier_by_name_not_found
+    client = RedmineApiClient.new
+    
+    mock_response = mock
+    mock_response.stubs(:body).returns('{"projects":[{"id":1,"name":"Project 1","identifier":"project-1"},{"id":2,"name":"Project 2","identifier":"project-2"}]}')
+    
+    RestClient.stubs(:get).returns(mock_response)
+    
+    result = client.project_identifier_by_name('Non-existent Project')
+    
+    assert result.is_a?(Hash)
+    assert result[:error].include?('見つかりません')
+  end
+
+  def test_fetch_wiki_by_project_name_success
+    client = RedmineApiClient.new
+    
+    # プロジェクト一覧のモック
+    projects_response = mock
+    projects_response.stubs(:body).returns('{"projects":[{"id":1,"name":"Test Project","identifier":"test-project"}]}')
+    
+    # Wikiページのモック
+    wiki_response = mock
+    wiki_response.stubs(:body).returns('{"wiki_page":{"title":"HomePage","text":"Welcome!"}}')
+    
+    RestClient.stubs(:get).with(
+      'http://test-redmine.example.com/projects.json',
+      {
+        'X-Redmine-API-Key' => 'test_api_key_12345',
+        'Content-Type' => 'application/json'
+      }
+    ).returns(projects_response)
+    
+    RestClient.stubs(:get).with(
+      'http://test-redmine.example.com/projects/test-project/wiki/HomePage.json',
+      {
+        'X-Redmine-API-Key' => 'test_api_key_12345',
+        'Content-Type' => 'application/json'
+      }
+    ).returns(wiki_response)
+    
+    result = client.fetch_wiki_by_project_name('Test Project', 'HomePage')
+    
+    assert_equal({"wiki_page" => {"title" => "HomePage", "text" => "Welcome!"}}, result)
+  end
+
   def test_create_ticket_success
     client = RedmineApiClient.new
     
