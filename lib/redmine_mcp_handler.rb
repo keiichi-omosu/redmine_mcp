@@ -243,27 +243,46 @@ class RedmineMcpHandler
   # @option params [String] 'wiki_title' 取得するWikiページのタイトル
   # @return [Hash] JSONRPCレスポンス
   def handle_redmine_wiki_tool(id, params)
+    McpLogger.info "get_redmine_wiki ツール実行開始: params=#{params.inspect}"
+    
     # パラメータ検証
     missing_keys = validate_required_params(params, ['project_name', 'wiki_title'])
     if missing_keys.include?('project_name')
+      McpLogger.warn "project_name パラメータが不足しています"
       return create_param_error_response(id, 'プロジェクト名が指定されていません')
     end
     if missing_keys.include?('wiki_title')
+      McpLogger.warn "wiki_title パラメータが不足しています"
       return create_param_error_response(id, 'Wikiタイトルが指定されていません')
     end
 
     project_name = params['project_name']
     wiki_title = params['wiki_title']
+    
+    McpLogger.debug "受信パラメータ: project_name=#{project_name.inspect}, wiki_title=#{wiki_title.inspect}"
 
     # 指定されたプロジェクトからWikiページを取得
     wiki_result = @redmine_client.fetch_wiki_by_project_name(project_name, wiki_title)
     
+    McpLogger.debug "API実行結果: #{wiki_result.inspect}"
+    
     # API結果のエラーチェック
     error_response = check_api_error(id, wiki_result)
-    return error_response if error_response
+    if error_response
+      McpLogger.error "API実行エラーが検出されました"
+      return error_response
+    end
 
     wiki_page = wiki_result['wiki_page']
+    
+    if wiki_page.nil?
+      McpLogger.error "wiki_page キーが存在しません。API結果の構造: #{wiki_result.keys.inspect}"
+      return create_server_error_response(id, "Wiki取得結果のフォーマットが不正です")
+    end
+    
     content_text = "# #{wiki_page['title']} (プロジェクト: #{project_name})\n\n#{wiki_page['text']}"
+    
+    McpLogger.info "get_redmine_wiki ツール実行成功"
 
     JsonrpcHelper.create_response(id, {
       content: [

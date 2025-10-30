@@ -13,6 +13,11 @@ class RedmineApiClient
     @api_key = ENV.fetch('REDMINE_API_KEY', '')
     
     McpLogger.info "Redmine接続先設定: #{@redmine_url}"
+    McpLogger.debug "APIキー設定状態: #{@api_key.empty? ? '未設定(空文字列)' : "設定済み(長さ: #{@api_key.length})"}"
+    
+    if @api_key.empty?
+      McpLogger.warn "警告: REDMINE_API_KEY環境変数が設定されていません。認証が必要なAPIは失敗します。"
+    end
   end
 
   # Redmineからチケット情報を取得する関数
@@ -52,19 +57,29 @@ class RedmineApiClient
   # @param [String] project_name 検索するプロジェクト名
   # @return [String, Hash] プロジェクト識別子、またはエラー情報を含むハッシュ
   def project_identifier_by_name(project_name)
+    McpLogger.debug "プロジェクト識別子取得開始: project_name=#{project_name.inspect}"
+    
     projects_data = fetch_projects
     
     if projects_data[:error]
+      McpLogger.error "プロジェクト一覧取得エラー: #{projects_data[:error]}"
       return { error: projects_data[:error] }
     end
+    
+    McpLogger.debug "取得したプロジェクト数: #{projects_data['projects']&.size || 0}"
     
     projects = projects_data['projects']
     matching_project = projects.find { |p| p['name'] == project_name }
     
     if matching_project
-      matching_project['identifier']
+      identifier = matching_project['identifier']
+      McpLogger.info "プロジェクト識別子が見つかりました: '#{project_name}' -> '#{identifier}'"
+      identifier
     else
-      { error: "プロジェクト名 '#{project_name}' に一致するプロジェクトが見つかりません" }
+      available_names = projects.map { |p| p['name'] }.join(', ')
+      error_msg = "プロジェクト名 '#{project_name}' に一致するプロジェクトが見つかりません。利用可能なプロジェクト: #{available_names}"
+      McpLogger.warn error_msg
+      { error: error_msg }
     end
   end
 
@@ -89,10 +104,24 @@ class RedmineApiClient
   # @param [String] wiki_page_name Wikiページ名
   # @return [Hash] Wikiページ情報、またはエラー情報を含むハッシュ
   def fetch_wiki_page(project_id, wiki_page_name)
+    McpLogger.debug "Wikiページ取得開始: project_id=#{project_id.inspect}, wiki_page_name=#{wiki_page_name.inspect}"
+    
     # プロジェクトIDとWikiページ名をURLエンコード
     encoded_project_id = ERB::Util.url_encode(project_id)
     encoded_wiki_page_name = ERB::Util.url_encode(wiki_page_name)
-    make_request('GET', "/projects/#{encoded_project_id}/wiki/#{encoded_wiki_page_name}.json", nil, 'Wikiページ取得')
+    
+    path = "/projects/#{encoded_project_id}/wiki/#{encoded_wiki_page_name}.json"
+    McpLogger.debug "リクエストパス: #{path}"
+    
+    result = make_request('GET', path, nil, 'Wikiページ取得')
+    
+    if result[:error]
+      McpLogger.error "Wikiページ取得エラー: #{result[:error]}"
+    else
+      McpLogger.info "Wikiページ取得成功: #{wiki_page_name}"
+    end
+    
+    result
   end
 
   # プロジェクト名からWikiページを取得する関数
@@ -100,11 +129,18 @@ class RedmineApiClient
   # @param [String] wiki_page_name Wikiページ名
   # @return [Hash] Wikiページ情報、またはエラー情報を含むハッシュ
   def fetch_wiki_by_project_name(project_name, wiki_page_name)
+    McpLogger.info "Wiki取得処理開始: project_name=#{project_name.inspect}, wiki_page_name=#{wiki_page_name.inspect}"
+    
     # プロジェクト識別子を取得
     project_identifier_result = project_identifier_by_name(project_name)
     
     # プロジェクト識別子取得でエラーが発生した場合は、そのエラーを返す
-    return project_identifier_result if project_identifier_result.is_a?(Hash) && project_identifier_result[:error]
+    if project_identifier_result.is_a?(Hash) && project_identifier_result[:error]
+      McpLogger.error "プロジェクト識別子取得失敗: #{project_identifier_result[:error]}"
+      return project_identifier_result
+    end
+    
+    McpLogger.debug "プロジェクト識別子取得成功: #{project_identifier_result.inspect}"
     
     # Wikiページを取得
     fetch_wiki_page(project_identifier_result, wiki_page_name)
@@ -125,6 +161,10 @@ class RedmineApiClient
       'Content-Type' => 'application/json'
     }
 
+    McpLogger.debug "HTTP #{method} リクエスト送信: #{url}"
+    McpLogger.debug "リクエストヘッダ: #{headers.keys.join(', ')}"
+    McpLogger.debug "リクエストボディ: #{payload.inspect}" if payload
+
     response = case method.upcase
                when 'GET'
                  RestClient.get(url, headers)
@@ -134,13 +174,17 @@ class RedmineApiClient
                  raise ArgumentError, "未サポートのHTTPメソッド: #{method}"
                end
 
-    JSON.parse(response.body)
+    parsed_response = JSON.parse(response.body)
+    McpLogger.debug "HTTPレスポンス成功 (#{response.code}): キー=#{parsed_response.keys.inspect}"
+    parsed_response
   rescue RestClient::ExceptionWithResponse => e
     error_message = parse_error_response(e.response)
     McpLogger.error "#{operation_name}呼び出しエラー: #{e.response.code} - #{error_message}"
+    McpLogger.debug "エラーレスポンスボディ: #{e.response.body}"
     { error: error_message, status_code: e.response.code.to_i }
   rescue StandardError => e
     McpLogger.error "#{operation_name}中に例外が発生: #{e.message}"
+    McpLogger.debug "例外詳細: #{e.class.name} - #{e.backtrace&.first(3)&.join("\n")}"
     { error: "#{operation_name}でエラーが発生しました: #{e.message}" }
   end
 

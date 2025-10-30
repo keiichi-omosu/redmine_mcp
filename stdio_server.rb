@@ -3,6 +3,10 @@
 require 'json'
 require 'logger'
 
+# 標準入出力のエンコーディング設定
+STDIN.set_encoding(Encoding::UTF_8)
+STDOUT.set_encoding(Encoding::UTF_8)
+
 # libディレクトリをロードパスに追加
 $LOAD_PATH.unshift(File.expand_path(File.join(File.dirname(__FILE__), 'lib')))
 require 'redmine_mcp_handler'
@@ -10,8 +14,10 @@ require 'jsonrpc_helper'
 require 'mcp_logger'
 require 'jsonrpc_error_codes'
 
-# ロガーの設定
-McpLogger.setup(STDERR, Logger::INFO)
+# ロガーの設定（デバッグ用にファイル出力）
+log_file = File.open('/tmp/redmine_mcp_debug.log', 'a')
+log_file.sync = true
+McpLogger.setup(log_file, Logger::DEBUG)
 
 # MCPハンドラの初期化
 mcp_handler = RedmineMcpHandler.new('stdio')
